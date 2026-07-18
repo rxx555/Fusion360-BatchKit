@@ -1,0 +1,10 @@
+# Python
+__pycache__/
+*.pyc
+
+# macOS / editors
+.DS_Store
+Thumbs.db
+
+# Excel lock files
+~$*

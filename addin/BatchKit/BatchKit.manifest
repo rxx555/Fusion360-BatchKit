@@ -1,0 +1,13 @@
+{
+    "autodeskProduct": "Fusion360",
+    "type": "addin",
+    "id": "6ca48fe1-fe02-4b20-8925-aa5b7a37cd07",
+    "author": "",
+    "description": {
+        "": "Batch rename bodies/components with auto-incrementing numbers, and apply one physical material to a multi-selection of bodies across components."
+    },
+    "version": "1.0.0",
+    "runOnStartup": true,
+    "supportedOS": "windows|mac",
+    "editEnabled": true
+}
