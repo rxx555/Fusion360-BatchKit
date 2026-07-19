@@ -30,7 +30,9 @@ CMDS = [
     ("bkRename", "BatchKit: Batch Rename",
      "Select bodies (and/or components) in the order you want numbered, type a "
      "base name, and each becomes '<base> 1', '<base> 2', ... Optional start "
-     "index and zero-padding."),
+     "index and zero-padding. Not undoable: Fusion does not add API renames to "
+     "the undo stack, so Ctrl/Cmd-Z will not restore the previous names. Re-run "
+     "to rename again."),
     ("bkMaterial", "BatchKit: Batch Material",
      "Select bodies (across any components), pick one physical material, and it "
      "is applied to all of them at once."),
