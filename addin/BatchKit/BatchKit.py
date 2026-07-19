@@ -34,6 +34,9 @@ CMDS = [
     ("bkMaterial", "BatchKit: Batch Material",
      "Select bodies (across any components), pick one physical material, and it "
      "is applied to all of them at once."),
+    ("bkSelectByMaterial", "BatchKit: Select by Material",
+     "Pick a material and select every body that uses it across the whole "
+     "assembly, ready to rename, re-material, or edit them together."),
 ]
 
 _app = None
@@ -114,6 +117,37 @@ def _resolve_material(name):
         except Exception:
             pass
     return None
+
+
+def _mat_label(name, count):
+    """Dropdown label pairing a material with how many bodies it will select."""
+    return "%s (%d %s)" % (name, count, "body" if count == 1 else "bodies")
+
+
+def _bodies_by_material(design):
+    """Ordered [(material_name, [native BRepBody, ...])] over the whole design.
+    A body's material is read as body.material.name (else '(none)'), the same
+    name Batch Material writes, so applying and selecting agree."""
+    groups, order = {}, []
+    for comp in design.allComponents:
+        for body in comp.bRepBodies:
+            name = body.material.name if body.material else "(none)"
+            if name not in groups:
+                groups[name] = []
+                order.append(name)
+            groups[name].append(body)
+    order.sort(key=lambda s: s.lower())
+    return [(name, groups[name]) for name in order]
+
+
+def _instance_count(root, bodies):
+    """Physical bodies the selection will touch: each native body counted once
+    per occurrence of its parent component (root-level bodies count once)."""
+    total = 0
+    for b in bodies:
+        occs = root.allOccurrencesByComponent(b.parentComponent)
+        total += occs.count if (occs and occs.count > 0) else 1
+    return total
 
 
 # ----------------------------------------------------------------------------
@@ -208,12 +242,13 @@ class _CmdCreated(adsk.core.CommandCreatedEventHandler):
             cmd = args.command
             inputs = cmd.commandInputs
 
-            sel = inputs.addSelectionInput(
-                "sel", "Selection",
-                "Bodies (and components) - pick in numbering order")
-            sel.addSelectionFilter("Bodies")
-            sel.addSelectionFilter("Occurrences")
-            sel.setSelectionLimits(1, 0)
+            if self.cmd_id in ("bkRename", "bkMaterial"):
+                sel = inputs.addSelectionInput(
+                    "sel", "Selection",
+                    "Bodies (and components) - pick in numbering order")
+                sel.addSelectionFilter("Bodies")
+                sel.addSelectionFilter("Occurrences")
+                sel.setSelectionLimits(1, 0)
 
             if self.cmd_id == "bkRename":
                 inputs.addStringValueInput("base", "Base name", "Part")
@@ -230,6 +265,20 @@ class _CmdCreated(adsk.core.CommandCreatedEventHandler):
                     dd.listItems.item(0).isSelected = True
                 inputs.addStringValueInput(
                     "matname", "Material name override (optional)", "")
+            elif self.cmd_id == "bkSelectByMaterial":
+                design = adsk.fusion.Design.cast(_app.activeProduct)
+                dd = inputs.addDropDownCommandInput(
+                    "material", "Material",
+                    adsk.core.DropDownStyles.TextListDropDownStyle)
+                groups = _bodies_by_material(design) if design else []
+                if groups:
+                    root = design.rootComponent
+                    for i, (name, bodies) in enumerate(groups):
+                        dd.listItems.add(
+                            _mat_label(name, _instance_count(root, bodies)),
+                            i == 0)
+                else:
+                    dd.listItems.add("(no bodies in this design)", True)
 
             on_exec = _CmdExecute(self.cmd_id)
             cmd.execute.add(on_exec)
@@ -251,12 +300,13 @@ class _CmdExecute(adsk.core.CommandEventHandler):
                 _ui.messageBox("No active design.", "BatchKit")
                 return
             inputs = args.command.commandInputs
-            sel_input = inputs.itemById("sel")
-            ents = [sel_input.selection(i).entity
-                    for i in range(sel_input.selectionCount)]
-            if not ents:
-                _ui.messageBox("Nothing selected.", "BatchKit")
-                return
+            if self.cmd_id in ("bkRename", "bkMaterial"):
+                sel_input = inputs.itemById("sel")
+                ents = [sel_input.selection(i).entity
+                        for i in range(sel_input.selectionCount)]
+                if not ents:
+                    _ui.messageBox("Nothing selected.", "BatchKit")
+                    return
 
             if self.cmd_id == "bkRename":
                 base = inputs.itemById("base").value.strip()
@@ -300,6 +350,47 @@ class _CmdExecute(adsk.core.CommandEventHandler):
                     msg += ("\n\n%d failed (see the BatchKit log):\n  %s"
                             % (len(errors), "\n  ".join(errors[:5])))
                 _ui.messageBox(msg, "BatchKit")
+
+            elif self.cmd_id == "bkSelectByMaterial":
+                groups = _bodies_by_material(design)
+                if not groups:
+                    _ui.messageBox("This design has no bodies.", "BatchKit")
+                    return
+                inp = inputs.itemById("material")
+                chosen = inp.selectedItem.name if inp and inp.selectedItem else None
+                root = design.rootComponent
+                bodies = None
+                for name, blist in groups:
+                    if _mat_label(name, _instance_count(root, blist)) == chosen:
+                        bodies = blist
+                        break
+                if bodies is None:
+                    return
+                sels = _ui.activeSelections
+                sels.clear()
+                n = 0
+                for body in bodies:
+                    occs = root.allOccurrencesByComponent(body.parentComponent)
+                    if occs and occs.count > 0:
+                        for i in range(occs.count):
+                            try:
+                                sels.add(body.createForAssemblyContext(
+                                    occs.item(i)))
+                                n += 1
+                            except Exception:
+                                _log("select-by-material: no proxy for body "
+                                     "'%s' in %s" % (body.name,
+                                                     occs.item(i).fullPathName))
+                    else:                        # root-level body: native is valid
+                        try:
+                            sels.add(body)
+                            n += 1
+                        except Exception:
+                            _log("select-by-material: cannot select body '%s'"
+                                 % body.name)
+                if n == 0:
+                    _ui.messageBox("No bodies could be selected for that "
+                                   "material.", "BatchKit")
         except Exception:
             if _ui:
                 _ui.messageBox("BatchKit error:\n" + traceback.format_exc())
