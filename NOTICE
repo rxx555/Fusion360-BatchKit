@@ -7,5 +7,6 @@ ISC License. Copyright (c) for portions of Lucide are held by Cole Bemis
 held by the Lucide Contributors 2022.
 
 Lucide glyphs used:
-  Batch Rename   = square-pen (with a hash badge)
-  Batch Material = circle / highlight (Lucide-style) with a copy badge
+  Batch Rename       = square-pen (with a hash badge)
+  Batch Material     = circle-gauge (with a copy badge)
+  Select by Material = wand-sparkles
