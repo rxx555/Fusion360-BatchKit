@@ -25,7 +25,7 @@ SIZES = sorted(set(FILES.values()))
 
 SPEC = {
     'bkRename': ('comp', 'square-pen', '#FFFFFF', 'hash', '#F3731D', 0.5),
-    'bkMaterial': ('comp', 'gauge-simple', '#FFFFFF', 'copy', '#F3731D', 0.5),
+    'bkMaterial': ('comp', 'gauge-shine', '#FFFFFF', 'copy', '#F3731D', 0.5),
     'bkSelectByMaterial': ('simple', 'wand-sparkles', '#FFFFFF', (1, 2, 3, 4, 5, 6, 7)),
 }
 
