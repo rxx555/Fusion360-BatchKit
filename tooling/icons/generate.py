@@ -25,7 +25,7 @@ SIZES = sorted(set(FILES.values()))
 
 SPEC = {
     'bkRename': ('comp', 'square-pen', '#FFFFFF', 'hash', '#F3731D', 0.5),
-    'bkMaterial': ('comp', 'circle-gauge', '#FFFFFF', 'copy', '#F3731D', 0.5),
+    'bkMaterial': ('comp', 'gauge-simple', '#FFFFFF', 'copy', '#F3731D', 0.5),
     'bkSelectByMaterial': ('simple', 'wand-sparkles', '#FFFFFF', (1, 2, 3, 4, 5, 6, 7)),
 }
 
@@ -80,10 +80,33 @@ def render_composite(bg, badge, px, base=WHITE, badge_col=ORANGE, scale=0.5):
     return out
 
 
+def render_filled_badge(px, disc, mark, mark_col, scale=0.5, mark_frac=0.56):
+    from PIL import ImageDraw
+    b = max(10, int(round(px * scale)))
+    ss = 4; big = b * ss
+    disc_im = Image.new("RGBA", (big, big), (0, 0, 0, 0))
+    rgb = tuple(int(disc[i:i + 2], 16) for i in (1, 3, 5))
+    ImageDraw.Draw(disc_im).ellipse([0, 0, big - 1, big - 1], fill=rgb + (255,))
+    disc_im = disc_im.resize((b, b), Image.LANCZOS)
+    mb = max(6, int(round(b * mark_frac)))
+    disc_im.alpha_composite(render_simple(mark, mb, base=mark_col),
+                            ((b - mb) // 2, (b - mb) // 2))
+    return disc_im, b
+
+
+def render_comp_filled(bg, px, base, disc, mark, mark_col, scale=0.5):
+    base_im = render_simple(bg, px, base=base)
+    badge, b = render_filled_badge(px, disc, mark, mark_col, scale=scale)
+    out = base_im.copy(); out.alpha_composite(badge, (px - b, px - b))
+    return out
+
+
 def build_one(cid, px):
     s = SPEC[cid]
     if s[0] == "simple":
         return render_simple(s[1], px, base=s[2], accent_paths=s[3])
+    if s[0] == "compfill":
+        return render_comp_filled(s[1], px, s[2], s[3], s[4], s[5], scale=s[6])
     return render_composite(s[1], s[3], px, base=s[2], badge_col=s[4], scale=s[5])
 
 
